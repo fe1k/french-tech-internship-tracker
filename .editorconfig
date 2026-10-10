@@ -1,0 +1,16 @@
+root = true
+
+[*]
+indent_style = space
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# Python standard: 4 spaces
+[*.py]
+indent_size = 4
+
+# Web / Frontend standard: 2 spaces
+[*.{js,jsx,ts,tsx,json,css,scss,html,yml,yaml,md,sql}]
+indent_size = 2
