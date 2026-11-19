@@ -1,0 +1,5 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/services/pipeline/.venv/Scripts/python.exe",
+  "python.analysis.extraPaths": ["${workspaceFolder}/services/pipeline/src"],
+  "ruff.path": ["${workspaceFolder}/services/pipeline/.venv/Scripts/ruff.exe"]
+}
