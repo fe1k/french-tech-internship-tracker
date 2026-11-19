@@ -5,11 +5,8 @@ from tracker.models.canonical import (
     classify_contract_type,
     compute_dedup_hash,
 )
-from tracker.models.enums import (
-    ATSProvider,
-    ContractType,
-    WorkplaceType 
-)
+from tracker.models.enums import ATSProvider, ContractType, WorkplaceType
+
 
 def test_classify_contract_type_stage_priority():
     """Tests that STAGE takes precedence over ALTERNANCE when both keywords exist."""
