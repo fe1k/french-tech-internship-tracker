@@ -1,0 +1,49 @@
+name: Pipeline CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/pipeline/**"
+      - ".github/workflows/pipeline-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "services/pipeline/**"
+      - ".github/workflows/pipeline-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    name: Lint & Unit Tests (Python 3.12)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/pipeline
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv and configure cache
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "services/pipeline/uv.lock"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install locked dependencies
+        run: uv sync --locked --extra dev
+
+      - name: Run Ruff linter
+        run: uv run ruff check .
+
+      - name: Check Ruff formatting
+        run: uv run ruff format --check .
+
+      - name: Run pytest suite
+        run: uv run pytest -v

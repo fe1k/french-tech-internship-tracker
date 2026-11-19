@@ -61,9 +61,9 @@ async def test_greenhouse_connector_fetch_jobs_success():
 async def test_greenhouse_connector_handles_404_gracefully():
     """Tests that a 404 response terminates the stream cleanly without throwing an exception."""
     with respx.mock:
-        respx.get("https://boards-api.greenhouse.io/v1/boards/invalid_company/jobs?content=true").mock(
-            return_value=Response(404)
-        )
+        respx.get(
+            "https://boards-api.greenhouse.io/v1/boards/invalid_company/jobs?content=true"
+        ).mock(return_value=Response(404))
 
         async with AsyncClient() as client:
             connector = GreenhouseConnector(client)

@@ -58,3 +58,6 @@ coverage/
 
 # Supabase Local Cache
 .supabase/
+
+# Disposable local smoke tests
+scripts/smoke_test_*.py
