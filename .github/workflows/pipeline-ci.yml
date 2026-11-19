@@ -12,6 +12,7 @@ on:
       - "services/pipeline/**"
       - ".github/workflows/pipeline-ci.yml"
 
+permissions:
   contents: read
 
 jobs:
