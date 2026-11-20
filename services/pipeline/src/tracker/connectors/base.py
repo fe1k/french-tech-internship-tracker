@@ -76,8 +76,7 @@ class BaseATSConnector(ABC):
                         delay = backoff + random.uniform(0, 0.5)
 
                     logger.warning(
-                        "Rate limited by %s for '%s' (HTTP 429). "
-                        "Retrying in %.2fs (Attempt %d/%d)",
+                        "Rate limited by %s for '%s' (HTTP 429). Retrying in %.2fs (Attempt %d/%d)",
                         provider_name,
                         company_slug,
                         delay,
