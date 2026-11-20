@@ -1,13 +1,10 @@
 """Greenhouse ATS Public Board API connector implementation."""
 
-import asyncio
 import html
 import logging
-import random
 from collections.abc import AsyncIterator
 from datetime import datetime
-
-import httpx
+from typing import Any
 
 from tracker.connectors.base import BaseATSConnector
 from tracker.models.canonical import JobPostingCanonical
@@ -27,7 +24,6 @@ def _sanitize_html_content(raw_content: str | None) -> str:
     """
     if not raw_content:
         return ""
-
     # Perform a two-pass unescape to resolve double-encoded entities (&amp;lt; -> &lt; -> <)
     unescaped = html.unescape(raw_content)
     if "&lt;" in unescaped or "&gt;" in unescaped or "&amp;" in unescaped:
@@ -36,7 +32,7 @@ def _sanitize_html_content(raw_content: str | None) -> str:
     return unescaped.strip()
 
 
-def _resolve_location(job_data: dict) -> str:
+def _resolve_location(job_data: dict[str, Any]) -> str:
     """Resolves job location using a cascading strategy across location and offices fields.
 
     Args:
@@ -87,90 +83,11 @@ class GreenhouseConnector(BaseATSConnector):
     """Connector for streaming job postings from the public Greenhouse Job Board API."""
 
     BASE_URL = "https://boards-api.greenhouse.io/v1/boards"
-    MAX_RETRIES = 3
-    BASE_DELAY_SECONDS = 1.0
 
     @property
     def provider(self) -> ATSProvider:
         """Returns the Greenhouse ATS provider enum identifier."""
         return ATSProvider.GREENHOUSE
-
-    async def _get_with_retry(
-        self,
-        url: str,
-        company_slug: str,
-    ) -> dict | None:
-        """Executes an HTTP GET request with exponential backoff and jitter retry logic.
-
-        Args:
-            url: Full target API URL endpoint.
-            company_slug: Internal company slug for logging context.
-
-        Returns:
-            Parsed JSON dictionary payload or None if request fails permanently.
-        """
-        for attempt in range(1, self.MAX_RETRIES + 1):
-            try:
-                response = await self.client.get(url)
-
-                if response.status_code == 200:
-                    return response.json()
-
-                if response.status_code == 404:
-                    logger.warning(
-                        "Greenhouse board token not found for '%s' (HTTP 404): %s",
-                        company_slug,
-                        url,
-                    )
-                    return None
-
-                if response.status_code == 429:
-                    retry_after = response.headers.get("Retry-After")
-                    if retry_after and retry_after.isdigit():
-                        delay = float(retry_after)
-                    else:
-                        delay = (self.BASE_DELAY_SECONDS * (2 ** (attempt - 1))) + random.uniform(
-                            0, 0.5
-                        )
-
-                    logger.warning(
-                        "Rate limited by Greenhouse for '%s' (HTTP 429). "
-                        "Retrying in %.2fs (Attempt %d/%d)",
-                        company_slug,
-                        delay,
-                        attempt,
-                        self.MAX_RETRIES,
-                    )
-                    await asyncio.sleep(delay)
-                    continue
-
-                # Handle other HTTP 5xx or unexpected status codes
-                logger.warning(
-                    "Unexpected HTTP %d from Greenhouse for '%s'. Retrying... (Attempt %d/%d)",
-                    response.status_code,
-                    company_slug,
-                    attempt,
-                    self.MAX_RETRIES,
-                )
-
-            except httpx.RequestError as exc:
-                logger.error(
-                    "Network error requesting Greenhouse API for '%s': %s (Attempt %d/%d)",
-                    company_slug,
-                    exc,
-                    attempt,
-                    self.MAX_RETRIES,
-                )
-
-            delay = (self.BASE_DELAY_SECONDS * (2 ** (attempt - 1))) + random.uniform(0, 0.5)
-            await asyncio.sleep(delay)
-
-        logger.error(
-            "Max retries exceeded fetching Greenhouse jobs for '%s': %s",
-            company_slug,
-            url,
-        )
-        return None
 
     async def fetch_jobs(
         self,
@@ -189,9 +106,9 @@ class GreenhouseConnector(BaseATSConnector):
             Validated JobPostingCanonical instances ready for database persistence.
         """
         url = f"{self.BASE_URL}/{ats_identifier}/jobs?content=true"
-        payload = await self._get_with_retry(url, company_slug)
+        payload = await self.get_json_with_retry(url, company_slug)
 
-        if not payload or "jobs" not in payload:
+        if not isinstance(payload, dict) or "jobs" not in payload:
             return
 
         for raw_job in payload["jobs"]:
@@ -212,7 +129,7 @@ class GreenhouseConnector(BaseATSConnector):
                 # Instantiating Pydantic model automatically computes:
                 # 1. contract_type (STAGE > CDD > ALTERNANCE)
                 # 2. dedup_hash (SHA-256)
-                canonical_job = JobPostingCanonical(
+                yield JobPostingCanonical(
                     external_id=external_id,
                     company_slug=company_slug,
                     company_name=company_name,
@@ -223,8 +140,6 @@ class GreenhouseConnector(BaseATSConnector):
                     description_raw=description_raw,
                     published_at=published_at,
                 )
-
-                yield canonical_job
 
             except Exception as exc:
                 logger.error(
